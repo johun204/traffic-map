@@ -1,24 +1,38 @@
 # traffic-map
 
-현위치 **50m 이내** 신호등의 잔여 시간을 표시하는 도보용 PWA.
+지도 위에 **서울시가 지원하는 교차로**를 표시하고, 현위치 주변 교차로의 **실시간 신호 잔여시간**을 보여주는 도보용 PWA.
+
+## 데이터 출처 — 서울시 C-ITS (t-data.seoul.go.kr)
+
+국가 ITS `signalPhase` 는 서울 도로 커버리지가 사실상 없어서 사용하지 않는다.
+대신 서울교통 빅데이터 플랫폼(t-data.seoul.go.kr)의 C-ITS Open API 2종을 쓴다.
+
+| API | 용도 |
+|-----|------|
+| `v2xCrossroadMapInformation/1.0` (교차로 Map 정보) | 지원 교차로 전체 목록 (id·이름·좌표). 일 1회 갱신 → 서버 6h 캐시 |
+| `v2xSignalPhaseTimingInformation/1.0` (신호제어기 잔여시간) | 교차로ID별 신호 현시·잔여시간(0.1초 단위) |
+
+커버리지: 도심(사대문안)·여의도·강남·상암·중앙버스전용차로 등 주요 교차로 788개소(2022) → 4차로 이상 전 교차로 3,660개소로 확대 중.
+키 발급: [t-data.seoul.go.kr](https://t-data.seoul.go.kr) 회원가입 후 활용신청(무료).
 
 ## 구조
 
-| 파일 | 역할 |
+| 경로 | 역할 |
 |------|------|
-| `index.html` / `style.css` / `app.js` | 앱 셸. `geolocation.watchPosition` → `/api/signals` 호출 → 50m 이내 신호 카드 + 1초 로컬 카운트다운 |
-| `api/signals.js` | Vercel 서버리스. ITS `signalPhase` API 프록시(CORS 회피·키 은닉). 키 없음/응답 없음 → 데모 신호 |
+| `index.html` / `style.css` / `app.js` | Leaflet 지도. 지원 교차로를 회색 점으로, 현위치 800m 이내 교차로(최대 12개)의 실시간 신호를 색상 마커 + 1초 카운트다운 |
+| `api/index.py` | FastAPI. 서울시 C-ITS API 프록시(키 은닉 + http→https 중계). `/api/intersections`, `/api/signals?itstId=a,b,c` |
+| `vendor/leaflet/` | Leaflet 1.9.4 (CDN 의존 제거) |
 | `sw.js` / `manifest.webmanifest` / `icon.svg` | PWA 설치·오프라인 셸 |
 
 ## 배포 (Vercel)
 
-1. 이 저장소를 Vercel 프로젝트로 import (프레임워크 프리셋: Other, 빌드 명령 없음).
-2. 환경변수:
-   - `ITS_API_KEY` — 국가교통정보센터(ITS) 오픈API 인증키. 없으면 데모 데이터로 동작.
-   - `DEMO=1` — 키가 있어도 강제로 데모 데이터 사용(선택).
-3. 배포 후 HTTPS URL 접속 → 위치 권한 허용.
+1. repo import → 프레임워크 프리셋 **Other**. `vercel.json` 이 `/api/*` 를 FastAPI 함수로 라우팅.
+2. 환경변수 `SEOUL_API_KEY` = t-data.seoul.go.kr 인증키. **없으면 503** (데모 없음).
+3. 배포된 HTTPS URL 접속 → 위치 권한 허용.
+
+로컬 실행: `pip install -r requirements.txt && vercel dev` (또는 `uvicorn api.index:app` + 정적 파일 별도 서빙).
 
 ## 알려진 제약
 
-- ITS `signalPhase` 는 시범 지역 위주로 커버리지가 제한적이라, 대부분 지역에서 `api/signals.js` 가 데모 데이터로 폴백한다.
-- `api/signals.js` 의 `normalize()` 는 ITS 응답 필드명을 추정한 매핑이다. 실제 응답을 확인해 필드명만 맞추면 실데이터가 표시된다.
+- `api/index.py` 의 `_rows()` / `_normalize_signal()` 필드 매핑은 t-data 응답 문서를 추정한 것. 실호출 JSON 1건 확인해 필드명만 맞추면 된다.
+- 신호는 방향별로 나오는데 현재는 "가장 빨리 바뀌는 현시" 하나로 요약해 교차로당 마커 1개로 표시한다.
