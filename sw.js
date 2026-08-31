@@ -1,5 +1,5 @@
 // 앱 셸만 캐시. /api 와 지도 타일은 항상 네트워크.
-const CACHE = 'traffic-map-v2';
+const CACHE = 'traffic-map-v3';
 const SHELL = [
   '/', '/index.html', '/app.js', '/style.css', '/icon.svg', '/manifest.webmanifest',
   '/vendor/leaflet/leaflet.js', '/vendor/leaflet/leaflet.css',

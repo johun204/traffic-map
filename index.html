@@ -11,8 +11,13 @@
 <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-<div id="status" class="status">지도를 확대하면 지원되는 신호등이 표시됩니다.</div>
+<div id="status" class="status">불러오는 중…</div>
 <div id="map"></div>
+<button id="locate" class="locate" type="button" aria-label="내 위치로">◎</button>
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-handle"></div>
+  <ul id="nearby"></ul>
+</div>
 
 <script src="/vendor/leaflet/leaflet.js"></script>
 <script src="/app.js"></script>
