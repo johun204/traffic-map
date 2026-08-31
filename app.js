@@ -52,10 +52,30 @@ let nextRefetchAt = Infinity;
 let refreshing = false;
 
 // ---- 부팅: 설정 → 네이버 지도 로드 → 시작 ----
+// 네이버가 인증 실패 시 호출하는 전역 콜백. 등록해야 할 도메인을 그대로 보여준다.
 window.navermap_authFailure = () =>
-  showError('네이버 지도 인증 실패 — NCP 콘솔에 이 도메인을 Web 서비스 URL로 등록하세요');
+  showError(
+    `네이버 지도 인증 실패 — NCP 콘솔 > Application > Maps 에서 ` +
+    `Web 서비스 URL 에 "${location.origin}" 를 등록하고 Web Dynamic Map 활성화를 확인하세요`
+  );
+
+const NAVER_JS = 'https://oapi.map.naver.com/openapi/v3/maps.js';
+
+async function loadNaver(clientId) {
+  // 콘솔 개편 전/후 파라미터명이 달라 둘 다 시도한다.
+  for (const param of ['ncpKeyId', 'ncpClientId']) {
+    try {
+      await loadScript(`${NAVER_JS}?${param}=${encodeURIComponent(clientId)}`);
+    } catch {
+      continue;
+    }
+    if (window.naver && naver.maps) return true;
+  }
+  return false;
+}
 
 (async function boot() {
+  console.info('[traffic-map] NCP Web 서비스 URL 에 등록할 origin:', location.origin);
   let cfg;
   try {
     cfg = await fetch('/api/config').then((r) => r.json());
@@ -67,15 +87,16 @@ window.navermap_authFailure = () =>
     showError('네이버 지도 클라이언트 ID가 설정되지 않았습니다 (NAVER_MAP_CLIENT_ID)');
     return;
   }
-  try {
-    await loadScript(
-      `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(cfg.naverMapClientId)}`
-    );
-  } catch {
-    showError('네이버 지도 스크립트를 불러오지 못했습니다');
+  if (!(await loadNaver(cfg.naverMapClientId))) {
+    showError(`네이버 지도 로드 실패 — 클라이언트 ID 확인, 그리고 NCP 콘솔에 "${location.origin}" 등록 필요`);
     return;
   }
-  initMap();
+  try {
+    initMap();
+  } catch (e) {
+    showError('지도 초기화 실패: ' + (e && e.message ? e.message : e));
+    return;
+  }
   startGeolocation();
   loadIntersections();
   setInterval(loop, 1000);
@@ -89,6 +110,8 @@ function initMap() {
     mapDataControl: false,
   });
   naver.maps.Event.addListener(map, 'dragstart', () => { follow = false; });
+  // 컨테이너 크기가 늦게 잡히는 경우 대비
+  setTimeout(() => naver.maps.Event.trigger(map, 'resize'), 300);
 }
 
 function startGeolocation() {

@@ -77,6 +77,17 @@ python -m uvicorn api.index:app --reload --port 8000
 
 `http://localhost:8000`. FastAPI 가 정적(`/`)과 API(`/api/*`)를 한 프로세스로 서빙. `.env` 는 자동 로드(커밋 안 됨).
 
+## 지도가 안 뜰 때
+
+1. **콘솔(F12) 확인.** `[traffic-map] ... origin: http://localhost:8000` 로그가 찍힌다.
+2. 그 origin(예: `http://localhost:8000`, 배포 시 `https://<app>.vercel.app`)을
+   NCP 콘솔 → Application → 해당 앱 → **Web 서비스 URL** 에 **그대로** 추가. (포트까지)
+3. 같은 앱에서 **Web Dynamic Map** 상품이 **선택/활성화** 돼 있는지 확인.
+4. `127.0.0.1` 로 접속 중이면 `http://127.0.0.1:8000` 도 등록하거나 `localhost` 로 접속.
+5. 상단에 빨강 배너로 "네이버 지도 인증 실패 …" 가 뜨면 위 1~4번 문제다.
+   배너 없이 그냥 회색이면 `/api/config` 가 키를 안 주는 것 → `.env` / Vercel 환경변수 확인.
+6. `maps.js` 파라미터는 `ncpKeyId` 우선, 실패 시 `ncpClientId` 로 자동 재시도한다.
+
 ## 알려진 제약
 
 - 신호(SPaT) 피드에 **색상 필드가 없다**. `_normalize_signal()` 은 *보행 잔여시간이 유효하면 현재 보행 녹색*, 없으면 적색으로 간주한다(대다수 KR 보행 C-ITS 관행 기반 추정). 현장에서 실제 신호등과 대조해 검증 필요 — 틀리면 한 줄 수정.
