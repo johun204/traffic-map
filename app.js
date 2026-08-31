@@ -29,11 +29,7 @@ function haversine(aLat, aLon, bLat, bLon) {
     Math.cos(aLat * Math.PI / 180) * Math.cos(bLat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 }
-function stateClass(s) { return s === 'GREEN' ? 'green' : s === 'YELLOW' ? 'amber' : 'red'; }
-function liveStyle(state) {
-  const c = { GREEN: '#22c55e', YELLOW: '#f59e0b', RED: '#ef4444' }[state] || '#ef4444';
-  return { radius: 9, weight: 2, color: '#0b0f17', fillColor: c, fillOpacity: 1 };
-}
+const LIVE_STYLE = { radius: 9, weight: 2, color: '#0b0f17', fillColor: '#f59e0b', fillOpacity: 1 };
 function setStatus(t) { $status.textContent = t; }
 
 navigator.geolocation.watchPosition(
@@ -108,14 +104,13 @@ function applySignals(list) {
     seen.add(s.id);
     let m = live.get(s.id);
     if (!m) {
-      const marker = L.circleMarker([s.lat, s.lon], liveStyle(s.state)).addTo(map);
+      const marker = L.circleMarker([s.lat, s.lon], LIVE_STYLE).addTo(map);
       marker.bindTooltip('', { permanent: true, direction: 'top', className: 'sig-tip', offset: [0, -6] });
-      m = { marker };
+      m = { marker, name: s.name };
       live.set(s.id, m);
     }
-    m.state = s.state;
     m.expiresAt = now + (s.secondsRemaining || 0) * 1000;
-    m.marker.setLatLng([s.lat, s.lon]).setStyle(liveStyle(s.state));
+    m.marker.setLatLng([s.lat, s.lon]);
     const dot = supportDots.get(s.id);
     if (dot) dot.setStyle({ fillOpacity: 0 });
   }
@@ -144,7 +139,7 @@ function tick() {
   const now = Date.now();
   for (const m of live.values()) {
     const rem = Math.max(0, Math.round((m.expiresAt - now) / 1000));
-    m.marker.setTooltipContent(`<span class="sig ${stateClass(m.state)}">${rem}<i>초</i></span>`);
+    m.marker.setTooltipContent(`<span class="sig">${rem}<i>초</i></span>`);
   }
 }
 

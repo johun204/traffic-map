@@ -52,8 +52,6 @@ body {
   padding: 3px 6px;
   border-radius: 7px;
   color: #fff;
+  background: var(--amber);
 }
 .sig i { font-style: normal; font-size: 10px; font-weight: 600; margin-left: 1px; }
-.sig.green { background: var(--green); }
-.sig.amber { background: var(--amber); }
-.sig.red { background: var(--red); }

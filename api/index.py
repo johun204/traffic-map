@@ -27,11 +27,15 @@ try:
 except ModuleNotFoundError:
     pass
 
+# http로 두고 follow_redirects로 https 승격을 따라간다 (https 직접 요청이 간헐적으로 응답 지연).
 BASE = "http://t-data.seoul.go.kr/apig/apiman-gateway/tapi"
 MAP_URL = f"{BASE}/v2xCrossroadMapInformation/1.0"
 SIG_URL = f"{BASE}/v2xSignalPhaseTimingInformation/1.0"
 MAX_ITST = 12
 CACHE_TTL = 6 * 3600
+# 일부 환경(해외 IP)에서 apiman 게이트웨이 http→https 리다이렉트 응답이 느리다. 국내에선 보통 1초 이내.
+HTTP_TIMEOUT = httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0)
+UA = {"User-Agent": "Mozilla/5.0 (traffic-map)"}
 
 app = FastAPI(title="traffic-map api (Seoul C-ITS)")
 app.add_middleware(
@@ -82,7 +86,7 @@ async def signals(itstId: str = Query(..., description="comma-separated intersec
     if not ids:
         raise HTTPException(status_code=422, detail="itstId required")
 
-    async with httpx.AsyncClient(timeout=6.0) as client:
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, follow_redirects=True, headers=UA) as client:
         results = await asyncio.gather(
             *[_fetch_signal(client, key, i) for i in ids], return_exceptions=True
         )
@@ -102,22 +106,24 @@ async def _ensure_intersections() -> None:
 
 async def _fetch_intersections(key: str) -> list[dict]:
     out: list[dict] = []
-    async with httpx.AsyncClient(timeout=8.0) as client:
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, follow_redirects=True, headers=UA) as client:
         for page in range(1, 21):
-            r = await client.get(
-                MAP_URL,
-                params={"apiKey": key, "type": "json", "pageNo": page, "numOfRows": 500},
+            r = await _get_retry(
+                client, MAP_URL,
+                {"apiKey": key, "type": "json", "pageNo": page, "numOfRows": 500},
             )
             r.raise_for_status()
             rows = _rows(r.json())
             if not rows:
                 break
             for it in rows:
-                lat = _num(it.get("mapCtptIntLat") or it.get("mapY") or it.get("yCrdn"))
-                lon = _num(it.get("mapCtptIntLot") or it.get("mapX") or it.get("xCrdn"))
-                iid = it.get("itstId") or it.get("inttId")
-                if lat is None or lon is None or not iid:
+                lat = _num(it.get("mapCtptIntLat"))
+                lon = _num(it.get("mapCtptIntLot"))
+                iid = it.get("itstId")
+                if not iid or lat is None or lon is None:
                     continue
+                if not (37.3 <= lat <= 37.8 and 126.6 <= lon <= 127.3):
+                    continue  # 서울 범위 밖 좌표(데이터 오류) 제외
                 out.append(
                     {"itstId": str(iid), "name": it.get("itstNm") or "교차로", "lat": lat, "lon": lon}
                 )
@@ -126,37 +132,54 @@ async def _fetch_intersections(key: str) -> list[dict]:
     return out
 
 
+async def _get_retry(client: httpx.AsyncClient, url: str, params: dict, tries: int = 2):
+    last = None
+    for _ in range(tries):
+        try:
+            return await client.get(url, params=params)
+        except httpx.TransportError as exc:
+            last = exc
+    raise last
+
+
 async def _fetch_signal(client: httpx.AsyncClient, key: str, itst_id: str):
-    r = await client.get(SIG_URL, params={"apiKey": key, "type": "json", "itstId": itst_id})
+    r = await _get_retry(
+        client, SIG_URL,
+        {"apiKey": key, "type": "json", "itstId": itst_id, "pageNo": 1, "numOfRows": 1},
+    )
     r.raise_for_status()
     return _normalize_signal(itst_id, r.json())
 
 
-# ponytail: t-data 응답 필드명 미확인 — 첫 실호출 JSON 보고 _rows / 아래 매핑만 고치면 됨.
+# t-data SPaT: 레코드 배열. 각 레코드에 {방위}{현시}sgRmdrCs = 잔여시간(1/10초).
+# 36001 은 SAE J2735 "미정의" 센티넬. 색상(녹/적) 필드는 없으므로 잔여시간만 표시한다.
+_SENTINEL = 36000
+
+
 def _normalize_signal(itst_id: str, data: dict):
     meta = _cache["by_id"].get(itst_id)
     if not meta:
         return None
     rows = _rows(data)
-    best_state = "RED"
-    best_remaining = None
-    for g in rows:
-        state = _state(g.get("signalStngNm") or g.get("signalState") or g.get("currentPhase"))
-        rem = _num(g.get("leftSecNm") or g.get("remainingTime") or g.get("remndrCs"))
-        if rem is None:
+    if not rows:
+        return None
+    rec = max(rows, key=lambda r: r.get("trsmUtcTime") or 0)
+    vals = []
+    for k, raw in rec.items():
+        if not k.endswith("RmdrCs"):
             continue
-        rem = round(rem / 10)  # t-data 잔여시간은 1/10초 단위
-        if best_remaining is None or rem < best_remaining:
-            best_remaining, best_state = rem, state
-    if best_remaining is None:
+        v = _num(raw)
+        if v is None or v >= _SENTINEL:
+            continue
+        vals.append(v / 10)
+    if not vals:
         return None
     return {
         "id": itst_id,
         "name": meta["name"],
         "lat": meta["lat"],
         "lon": meta["lon"],
-        "state": best_state,
-        "secondsRemaining": best_remaining,
+        "secondsRemaining": round(min(vals)),
     }
 
 
@@ -183,15 +206,6 @@ def _num(v):
         return float(v)
     except (TypeError, ValueError):
         return None
-
-
-def _state(v) -> str:
-    s = str(v or "").upper()
-    if "GREEN" in s or s in ("G", "03") or "녹" in s or "보행" in s:
-        return "GREEN"
-    if "YELLOW" in s or s in ("Y", "04") or "황" in s or "점멸" in s:
-        return "YELLOW"
-    return "RED"
 
 
 # 로컬에서 단일 프로세스로 정적 파일까지 서빙. Vercel에선 정적은 CDN이 담당하므로 이 mount는 미사용.
