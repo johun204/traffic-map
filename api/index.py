@@ -69,7 +69,15 @@ def health():
         "ok": True,
         "map_key": bool(os.environ.get("SEOUL_MAP_API_KEY") or os.environ.get("SEOUL_API_KEY")),
         "signal_key": bool(os.environ.get("SEOUL_SIGNAL_API_KEY") or os.environ.get("SEOUL_API_KEY")),
+        "naver_map_key": bool(os.environ.get("NAVER_MAP_CLIENT_ID")),
     }
+
+
+@app.get("/api/config")
+@app.get("/config")
+def config():
+    # 네이버 지도 클라이언트 ID(도메인 제한 키). 없으면 빈 문자열 → 프런트가 오류 표시.
+    return {"naverMapClientId": os.environ.get("NAVER_MAP_CLIENT_ID", "")}
 
 
 @app.get("/api/intersections")
@@ -158,9 +166,14 @@ async def _fetch_signal(client: httpx.AsyncClient, key: str, itst_id: str):
     return result
 
 
-# t-data SPaT: 레코드 배열. 각 레코드에 {방위}{현시}sgRmdrCs = 잔여시간(1/10초).
-# 36001 은 SAE J2735 "미정의" 센티넬. 색상(녹/적) 필드는 없으므로 잔여시간만 표시한다.
+# t-data SPaT: 레코드 배열. {방위}{현시}sgRmdrCs = 잔여시간(1/10초). 36001 = SAE J2735 "미정의".
 _SENTINEL = 36000
+_DIRS = ("nt", "et", "st", "wt", "ne", "se", "sw", "nw")
+
+
+def _valid(v):
+    v = _num(v)
+    return v if (v is not None and 0 < v < _SENTINEL) else None
 
 
 def _normalize_signal(itst_id: str, data: dict):
@@ -171,22 +184,24 @@ def _normalize_signal(itst_id: str, data: dict):
     if not rows:
         return None
     rec = max(rows, key=lambda r: r.get("trsmUtcTime") or 0)
-    vals = []
-    for k, raw in rec.items():
-        if not k.endswith("RmdrCs"):
-            continue
-        v = _num(raw)
-        if v is None or v >= _SENTINEL:
-            continue
-        vals.append(v / 10)
-    if not vals:
-        return None
+
+    # ponytail: 보행신호 잔여(1/10초)가 유효하면 현재 '보행 녹색'으로 간주(대다수 KR 보행 C-ITS 관행).
+    #           유효값 없으면 '적색'. 다음 녹색까지 시간은 이 피드에 없음. 현장 실측으로 검증 필요.
+    walk = [w for d in _DIRS if (w := _valid(rec.get(f"{d}PdsgRmdrCs"))) is not None]
+    if walk:
+        state, remaining = "GREEN", round(min(walk) / 10)
+    elif any(_valid(v) is not None for k, v in rec.items() if k.endswith("RmdrCs")):
+        state, remaining = "RED", 0
+    else:
+        return None  # 이 교차로는 쓸 만한 신호 데이터 없음
+
     return {
         "id": itst_id,
         "name": meta["name"],
         "lat": meta["lat"],
         "lon": meta["lon"],
-        "secondsRemaining": round(min(vals)),
+        "state": state,
+        "secondsRemaining": remaining,
     }
 
 

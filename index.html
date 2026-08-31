@@ -7,19 +7,25 @@
 <title>내 주변 신호등</title>
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-<link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+<div id="error" class="error" hidden></div>
 <div id="status" class="status">불러오는 중…</div>
 <div id="map"></div>
+
+<div class="radius" id="radius">
+  <button type="button" data-r="30">30m</button>
+  <button type="button" data-r="50" class="on">50m</button>
+  <button type="button" data-r="100">100m</button>
+</div>
 <button id="locate" class="locate" type="button" aria-label="내 위치로">◎</button>
+
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-handle"></div>
   <ul id="nearby"></ul>
 </div>
 
-<script src="/vendor/leaflet/leaflet.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
