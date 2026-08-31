@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0f17" />
+<title>신호등 타이머</title>
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <h1>내 주변 신호등</h1>
+  <span id="source" class="badge" hidden></span>
+</header>
+
+<main>
+  <p id="status" class="status">위치 권한을 허용하면 50m 이내 신호등이 표시됩니다.</p>
+  <ul id="list"></ul>
+</main>
+
+<footer>
+  <span id="coords"></span>
+  <button id="retry" type="button" hidden>위치 다시 시도</button>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

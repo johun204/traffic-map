@@ -1,0 +1,12 @@
+{
+  "name": "내 주변 신호등 타이머",
+  "short_name": "신호등",
+  "description": "현위치 50m 이내 신호등의 잔여 시간을 표시",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
