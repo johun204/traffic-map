@@ -43,6 +43,8 @@ app.add_middleware(
 )
 
 _cache: dict = {"at": 0.0, "list": None, "by_id": {}}
+_sig_cache: dict = {}  # itstId -> (ts, result)  게이트웨이 호출 한도 보호용
+SIG_TTL = 4.0
 
 
 # 신호 API와 교차로맵 API 키가 다를 수 있어 개별 지정 가능. 없으면 공통 SEOUL_API_KEY 사용.
@@ -143,12 +145,17 @@ async def _get_retry(client: httpx.AsyncClient, url: str, params: dict, tries: i
 
 
 async def _fetch_signal(client: httpx.AsyncClient, key: str, itst_id: str):
+    hit = _sig_cache.get(itst_id)
+    if hit and time.time() - hit[0] < SIG_TTL:
+        return hit[1]
     r = await _get_retry(
         client, SIG_URL,
         {"apiKey": key, "type": "json", "itstId": itst_id, "pageNo": 1, "numOfRows": 1},
     )
     r.raise_for_status()
-    return _normalize_signal(itst_id, r.json())
+    result = _normalize_signal(itst_id, r.json())
+    _sig_cache[itst_id] = (time.time(), result)
+    return result
 
 
 # t-data SPaT: 레코드 배열. 각 레코드에 {방위}{현시}sgRmdrCs = 잔여시간(1/10초).

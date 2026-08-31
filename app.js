@@ -2,7 +2,7 @@
 
 const NEARBY_RADIUS_M = 800;   // 이 반경 안의 교차로만 폴링
 const MAX_POLL = 12;           // 서버 제한과 동일
-const REFRESH_MS = 5000;
+const REFRESH_MS = 15000;      // t-data 게이트웨이 호출 한도 고려
 
 const $status = document.getElementById('status');
 
