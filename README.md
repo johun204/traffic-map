@@ -30,7 +30,17 @@
 2. 환경변수 `SEOUL_API_KEY` = t-data.seoul.go.kr 인증키. **없으면 503** (데모 없음).
 3. 배포된 HTTPS URL 접속 → 위치 권한 허용.
 
-로컬 실행: `pip install -r requirements.txt && vercel dev` (또는 `uvicorn api.index:app` + 정적 파일 별도 서빙).
+### 로컬 실행
+
+```
+pip install -r requirements-dev.txt
+cp .env.example .env      # .env 에 t-data 인증키 입력
+python -m uvicorn api.index:app --reload --port 8000
+```
+
+`http://localhost:8000` 접속. FastAPI 가 정적 파일(`/`)과 API(`/api/*`)를 한 프로세스로 서빙한다.
+`.env` 는 `python-dotenv` 로 자동 로드되며 git 에 커밋되지 않는다. 키 상태는 `GET /api/health` 로 확인.
+브라우저 geolocation 은 `localhost` 에서는 http 여도 동작한다.
 
 ## 알려진 제약
 

@@ -10,10 +10,22 @@
 import asyncio
 import os
 import time
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+_ROOT = Path(__file__).resolve().parent.parent
+
+# 로컬 개발 편의: .env 로드 (Vercel은 환경변수를 직접 주입하므로 dotenv 불필요)
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(_ROOT / ".env")
+except ModuleNotFoundError:
+    pass
 
 BASE = "http://t-data.seoul.go.kr/apig/apiman-gateway/tapi"
 MAP_URL = f"{BASE}/v2xCrossroadMapInformation/1.0"
@@ -29,17 +41,29 @@ app.add_middleware(
 _cache: dict = {"at": 0.0, "list": None, "by_id": {}}
 
 
-def _key() -> str:
-    k = os.environ.get("SEOUL_API_KEY")
+# 신호 API와 교차로맵 API 키가 다를 수 있어 개별 지정 가능. 없으면 공통 SEOUL_API_KEY 사용.
+def _map_key() -> str:
+    k = os.environ.get("SEOUL_MAP_API_KEY") or os.environ.get("SEOUL_API_KEY")
     if not k:
-        raise HTTPException(status_code=503, detail="SEOUL_API_KEY not configured")
+        raise HTTPException(status_code=503, detail="map API key not configured")
+    return k
+
+
+def _sig_key() -> str:
+    k = os.environ.get("SEOUL_SIGNAL_API_KEY") or os.environ.get("SEOUL_API_KEY")
+    if not k:
+        raise HTTPException(status_code=503, detail="signal API key not configured")
     return k
 
 
 @app.get("/api/health")
 @app.get("/health")
 def health():
-    return {"ok": True, "key_configured": bool(os.environ.get("SEOUL_API_KEY"))}
+    return {
+        "ok": True,
+        "map_key": bool(os.environ.get("SEOUL_MAP_API_KEY") or os.environ.get("SEOUL_API_KEY")),
+        "signal_key": bool(os.environ.get("SEOUL_SIGNAL_API_KEY") or os.environ.get("SEOUL_API_KEY")),
+    }
 
 
 @app.get("/api/intersections")
@@ -52,7 +76,7 @@ async def intersections():
 @app.get("/api/signals")
 @app.get("/signals")
 async def signals(itstId: str = Query(..., description="comma-separated intersection ids")):
-    key = _key()
+    key = _sig_key()
     await _ensure_intersections()
     ids = [s for s in (x.strip() for x in itstId.split(",")) if s][:MAX_ITST]
     if not ids:
@@ -70,7 +94,7 @@ async def _ensure_intersections() -> None:
     now = time.time()
     if _cache["list"] is not None and now - _cache["at"] < CACHE_TTL:
         return
-    data = await _fetch_intersections(_key())
+    data = await _fetch_intersections(_map_key())
     _cache["list"] = data
     _cache["by_id"] = {d["itstId"]: d for d in data}
     _cache["at"] = now
@@ -168,3 +192,8 @@ def _state(v) -> str:
     if "YELLOW" in s or s in ("Y", "04") or "황" in s or "점멸" in s:
         return "YELLOW"
     return "RED"
+
+
+# 로컬에서 단일 프로세스로 정적 파일까지 서빙. Vercel에선 정적은 CDN이 담당하므로 이 mount는 미사용.
+if (_ROOT / "index.html").exists():
+    app.mount("/", StaticFiles(directory=_ROOT, html=True), name="static")
