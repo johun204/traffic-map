@@ -1,5 +1,5 @@
-// 앱 셸만 캐시. /api 와 네이버 지도(교차 출처)는 항상 네트워크.
-const CACHE = 'traffic-map-v4';
+// 앱 셸만 캐시. /api 와 카카오맵(교차 출처)은 항상 네트워크.
+const CACHE = 'traffic-map-v5';
 const SHELL = ['/', '/index.html', '/app.js', '/style.css', '/icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

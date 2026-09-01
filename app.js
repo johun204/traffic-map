@@ -40,42 +40,43 @@ function loadScript(src) {
 
 // ---- 상태 ----
 let map = null;
-let meMarker = null;
+let meOverlay = null;
 let lastPos = null;                 // { lat, lon } 현재 GPS
 let follow = true;
 let intersections = [];             // [{ itstId, name, lat, lon }]
-const live = new Map();             // itstId -> { marker, state, name, dist, expiresAt }
+const live = new Map();             // itstId -> { overlay, el, state, name, dist, expiresAt }
 
 let lastFetchPos = null;
 let lastFetchAt = 0;
 let nextRefetchAt = Infinity;
 let refreshing = false;
 
-// ---- 부팅: 설정 → 네이버 지도 로드 → 시작 ----
-// 네이버가 인증 실패 시 호출하는 전역 콜백. 등록해야 할 도메인을 그대로 보여준다.
-window.navermap_authFailure = () =>
-  showError(
-    `네이버 지도 인증 실패 — NCP 콘솔 > Application > Maps 에서 ` +
-    `Web 서비스 URL 에 "${location.origin}" 를 등록하고 Web Dynamic Map 활성화를 확인하세요`
-  );
-
-const NAVER_JS = 'https://oapi.map.naver.com/openapi/v3/maps.js';
-
-async function loadNaver(clientId) {
-  // 콘솔 개편 전/후 파라미터명이 달라 둘 다 시도한다.
-  for (const param of ['ncpKeyId', 'ncpClientId']) {
-    try {
-      await loadScript(`${NAVER_JS}?${param}=${encodeURIComponent(clientId)}`);
-    } catch {
-      continue;
-    }
-    if (window.naver && naver.maps) return true;
+// ---- 부팅: 설정 → 카카오맵 로드 → 시작 ----
+async function loadKakao(appkey) {
+  try {
+    await loadScript(
+      `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(appkey)}&autoload=false`
+    );
+  } catch {
+    return false;
   }
-  return false;
+  if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.load) return false;
+  return await new Promise((resolve) => {
+    const t = setTimeout(() => resolve(false), 6000);
+    try {
+      kakao.maps.load(() => {
+        clearTimeout(t);
+        resolve(!!(kakao.maps && kakao.maps.Map));
+      });
+    } catch {
+      clearTimeout(t);
+      resolve(false);
+    }
+  });
 }
 
 (async function boot() {
-  console.info('[traffic-map] NCP Web 서비스 URL 에 등록할 origin:', location.origin);
+  console.info('[traffic-map] Kakao 플랫폼 Web 사이트 도메인에 등록할 origin:', location.origin);
   let cfg;
   try {
     cfg = await fetch('/api/config').then((r) => r.json());
@@ -83,12 +84,15 @@ async function loadNaver(clientId) {
     showError('설정을 불러오지 못했습니다 (/api/config)');
     return;
   }
-  if (!cfg.naverMapClientId) {
-    showError('네이버 지도 클라이언트 ID가 설정되지 않았습니다 (NAVER_MAP_CLIENT_ID)');
+  if (!cfg.kakaoMapAppKey) {
+    showError('카카오맵 JavaScript 키가 설정되지 않았습니다 (KAKAO_MAP_APP_KEY)');
     return;
   }
-  if (!(await loadNaver(cfg.naverMapClientId))) {
-    showError(`네이버 지도 로드 실패 — 클라이언트 ID 확인, 그리고 NCP 콘솔에 "${location.origin}" 등록 필요`);
+  if (!(await loadKakao(cfg.kakaoMapAppKey))) {
+    showError(
+      `카카오맵 로드 실패 — JavaScript 키 확인, 그리고 Kakao Developers > 플랫폼 > Web 에 ` +
+      `"${location.origin}" 등록 및 카카오맵 활성화를 확인하세요`
+    );
     return;
   }
   try {
@@ -103,15 +107,12 @@ async function loadNaver(clientId) {
 })();
 
 function initMap() {
-  map = new naver.maps.Map('map', {
-    center: new naver.maps.LatLng(37.5665, 126.978),
-    zoom: 18,
-    scaleControl: false,
-    mapDataControl: false,
+  map = new kakao.maps.Map(document.getElementById('map'), {
+    center: new kakao.maps.LatLng(37.5665, 126.978),
+    level: 3,
   });
-  naver.maps.Event.addListener(map, 'dragstart', () => { follow = false; });
-  // 컨테이너 크기가 늦게 잡히는 경우 대비
-  setTimeout(() => naver.maps.Event.trigger(map, 'resize'), 300);
+  kakao.maps.event.addListener(map, 'dragstart', () => { follow = false; });
+  setTimeout(() => map.relayout(), 300);
 }
 
 function startGeolocation() {
@@ -126,14 +127,14 @@ function startGeolocation() {
 
 function onPos(p) {
   lastPos = { lat: p.coords.latitude, lon: p.coords.longitude };
-  const ll = new naver.maps.LatLng(lastPos.lat, lastPos.lon);
-  if (!meMarker) {
-    meMarker = new naver.maps.Marker({
-      position: ll, map, zIndex: 1000,
-      icon: { content: '<div class="me"></div>', anchor: new naver.maps.Point(12, 12) },
-    });
+  const ll = new kakao.maps.LatLng(lastPos.lat, lastPos.lon);
+  if (!meOverlay) {
+    const el = document.createElement('div');
+    el.className = 'me';
+    meOverlay = new kakao.maps.CustomOverlay({ position: ll, content: el, xAnchor: 0.5, yAnchor: 0.5, zIndex: 100 });
+    meOverlay.setMap(map);
   } else {
-    meMarker.setPosition(ll);
+    meOverlay.setPosition(ll);
   }
   if (follow) map.setCenter(ll);
 
@@ -174,7 +175,7 @@ $radius.addEventListener('click', (e) => {
 
 $locate.addEventListener('click', () => {
   follow = true;
-  if (lastPos) map.setCenter(new naver.maps.LatLng(lastPos.lat, lastPos.lon));
+  if (lastPos) map.setCenter(new kakao.maps.LatLng(lastPos.lat, lastPos.lon));
 });
 
 function loop() {
@@ -234,22 +235,23 @@ function applySignals(list, near) {
     seen.add(s.id);
     let m = live.get(s.id);
     if (!m) {
-      m = {
-        marker: new naver.maps.Marker({
-          position: new naver.maps.LatLng(s.lat, s.lon), map,
-          icon: { content: '', anchor: new naver.maps.Point(22, 14) },
-        }),
-      };
+      const el = document.createElement('div');
+      const overlay = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(s.lat, s.lon),
+        content: el, xAnchor: 0.5, yAnchor: 0.5,
+      });
+      overlay.setMap(map);
+      m = { overlay, el };
       live.set(s.id, m);
     }
     m.state = s.state;
     m.name = s.name;
     m.dist = distById.get(s.id) ?? null;
     m.expiresAt = now + (s.secondsRemaining || 0) * 1000;
-    m.marker.setPosition(new naver.maps.LatLng(s.lat, s.lon));
+    m.overlay.setPosition(new kakao.maps.LatLng(s.lat, s.lon));
   }
   for (const [id, m] of live) {
-    if (!seen.has(id)) { m.marker.setMap(null); live.delete(id); }
+    if (!seen.has(id)) { m.overlay.setMap(null); live.delete(id); }
   }
 
   setStatus(live.size ? `내 주변 신호등 ${live.size}개` : `${RADIUS_M}m 이내 신호 데이터 없음`);
@@ -257,7 +259,7 @@ function applySignals(list, near) {
 }
 
 function clearLive() {
-  for (const m of live.values()) m.marker.setMap(null);
+  for (const m of live.values()) m.overlay.setMap(null);
   live.clear();
   render(Date.now());
 }
@@ -275,10 +277,8 @@ function tick() { render(Date.now()); }
 function render(now) {
   for (const m of live.values()) {
     const b = badge(m.state, m.expiresAt, now);
-    m.marker.setIcon({
-      content: `<div class="sig ${b.cls}">${b.text}</div>`,
-      anchor: new naver.maps.Point(22, 14),
-    });
+    m.el.className = 'sig ' + b.cls;
+    m.el.innerHTML = b.text;
   }
   const rows = [...live.values()].filter((m) => m.dist != null).sort((a, b) => a.dist - b.dist);
   if (!rows.length) { $sheet.hidden = true; $nearby.innerHTML = ''; return; }

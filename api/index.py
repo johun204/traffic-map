@@ -69,15 +69,15 @@ def health():
         "ok": True,
         "map_key": bool(os.environ.get("SEOUL_MAP_API_KEY") or os.environ.get("SEOUL_API_KEY")),
         "signal_key": bool(os.environ.get("SEOUL_SIGNAL_API_KEY") or os.environ.get("SEOUL_API_KEY")),
-        "naver_map_key": bool(os.environ.get("NAVER_MAP_CLIENT_ID")),
+        "kakao_map_key": bool(os.environ.get("KAKAO_MAP_APP_KEY")),
     }
 
 
 @app.get("/api/config")
 @app.get("/config")
 def config():
-    # 네이버 지도 클라이언트 ID(도메인 제한 키). 없으면 빈 문자열 → 프런트가 오류 표시.
-    return {"naverMapClientId": os.environ.get("NAVER_MAP_CLIENT_ID", "")}
+    # 카카오맵 JavaScript 키(도메인 제한 키). 없으면 빈 문자열 → 프런트가 오류 표시.
+    return {"kakaoMapAppKey": os.environ.get("KAKAO_MAP_APP_KEY", "")}
 
 
 @app.get("/api/intersections")
