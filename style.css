@@ -9,6 +9,8 @@
 }
 
 * { box-sizing: border-box; }
+/* display 를 지정한 요소(.popup 등)에서도 hidden 이 먹도록 */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
 body {
   background: var(--bg);
@@ -40,9 +42,8 @@ body {
   position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
   z-index: 700; max-width: 82%; padding: 10px 16px; border-radius: 10px;
   background: rgba(0, 0, 0, .85); color: #fff; font-weight: 600; text-align: center;
-  transition: opacity .2s; pointer-events: none;
+  pointer-events: none;
 }
-.toast[hidden] { display: block; opacity: 0; }
 
 .locate {
   position: absolute; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 20px);

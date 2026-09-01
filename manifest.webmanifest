@@ -1,12 +1,19 @@
 {
-  "name": "내 주변 신호등 타이머",
+  "name": "내 주변 신호등",
   "short_name": "신호등",
-  "description": "현위치 50m 이내 신호등의 잔여 시간을 표시",
+  "description": "현위치 주변 신호등의 보행 신호 상태와 잔여 시간을 지도에 표시하는 도보용 앱",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0b0f17",
   "theme_color": "#0b0f17",
+  "lang": "ko",
+  "categories": ["navigation", "utilities", "travel"],
   "icons": [
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

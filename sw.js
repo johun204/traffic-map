@@ -1,6 +1,9 @@
 // 앱 셸만 캐시. /api 와 카카오맵(교차 출처)은 항상 네트워크.
-const CACHE = 'traffic-map-v5';
-const SHELL = ['/', '/index.html', '/app.js', '/style.css', '/icon.svg', '/manifest.webmanifest'];
+const CACHE = 'traffic-map-v6';
+const SHELL = [
+  '/', '/index.html', '/app.js', '/style.css', '/manifest.webmanifest',
+  '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
