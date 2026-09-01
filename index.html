@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0b0f17" />
 <title>내 주변 신호등</title>
 <link rel="manifest" href="/manifest.webmanifest" />
@@ -12,18 +12,36 @@
 <body>
 <div id="error" class="error" hidden></div>
 <div id="status" class="status">불러오는 중…</div>
-<div id="map"></div>
 
-<div class="radius" id="radius">
-  <button type="button" data-r="30">30m</button>
-  <button type="button" data-r="50" class="on">50m</button>
-  <button type="button" data-r="100">100m</button>
+<div id="mapwrap">
+  <div id="map"></div>
 </div>
-<button id="locate" class="locate" type="button" aria-label="내 위치로">◎</button>
+
+<button id="locate" class="locate" type="button" aria-label="내 위치">◎</button>
+<div id="toast" class="toast" hidden></div>
 
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-handle"></div>
   <ul id="nearby"></ul>
+</div>
+
+<div id="popup" class="popup" hidden>
+  <div class="popup-card">
+    <button id="popup-close" class="popup-close" type="button" aria-label="닫기">×</button>
+    <div id="popup-body"></div>
+  </div>
+</div>
+
+<div id="devtoggle" class="devtoggle" hidden>
+  <label><input type="checkbox" id="devchk" /> DEV</label>
+</div>
+<div id="devpanel" class="devpanel" hidden>
+  <div class="devpanel-head">
+    <strong>개발자 모드</strong>
+    <button id="dev-clear" type="button">clear</button>
+  </div>
+  <pre id="dev-state"></pre>
+  <ul id="dev-log"></ul>
 </div>
 
 <script src="/app.js"></script>

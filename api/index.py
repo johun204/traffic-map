@@ -31,7 +31,7 @@ except ModuleNotFoundError:
 BASE = "http://t-data.seoul.go.kr/apig/apiman-gateway/tapi"
 MAP_URL = f"{BASE}/v2xCrossroadMapInformation/1.0"
 SIG_URL = f"{BASE}/v2xSignalPhaseTimingInformation/1.0"
-MAX_ITST = 12
+MAX_ITST = 20
 CACHE_TTL = 6 * 3600
 # 일부 환경(해외 IP)에서 apiman 게이트웨이 http→https 리다이렉트 응답이 느리다. 국내에선 보통 1초 이내.
 HTTP_TIMEOUT = httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0)

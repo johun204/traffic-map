@@ -5,104 +5,65 @@
   --muted: #9ca3af;
   --green: #22c55e;
   --red: #ef4444;
+  --blue: #2563eb;
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
 body {
   background: var(--bg);
   color: var(--text);
   font: 15px/1.4 -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
 }
 
-#map { position: absolute; inset: 40px 0 0 0; background: var(--bg); }
+/* 지도: wrap 이 뷰포트, map 은 회전/틸트 시 모서리가 비지 않도록 필요 시 확대 */
+#mapwrap { position: absolute; inset: 40px 0 0 0; overflow: hidden; background: var(--bg); }
+#map { position: absolute; inset: 0; transform-origin: 50% 50%; }
+#map.big {
+  width: 180%; height: 180%;
+  inset: -40% -40% -40% -40%;
+  perspective-origin: 50% 50%;
+}
 
 .status {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 40px;
-  z-index: 400;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  background: var(--surface);
-  border-bottom: 1px solid #000;
-  font-weight: 600;
+  position: absolute; inset: 0 0 auto 0; height: 40px; z-index: 500;
+  display: flex; align-items: center; padding: 0 16px;
+  background: var(--surface); border-bottom: 1px solid #000; font-weight: 600;
+  user-select: none;
 }
-
 .error {
-  position: absolute;
-  inset: 40px 0 auto 0;
-  z-index: 500;
-  padding: 10px 16px;
-  background: var(--red);
-  color: #fff;
-  font-weight: 700;
+  position: absolute; inset: 40px 0 auto 0; z-index: 600;
+  padding: 10px 16px; background: var(--red); color: #fff; font-weight: 700;
 }
 
-.radius {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom) + 24px);
-  z-index: 400;
-  display: flex;
-  border-radius: 999px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .45);
+.toast {
+  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+  z-index: 700; max-width: 82%; padding: 10px 16px; border-radius: 10px;
+  background: rgba(0, 0, 0, .85); color: #fff; font-weight: 600; text-align: center;
+  transition: opacity .2s; pointer-events: none;
 }
-.radius button {
-  border: none;
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
-  font-weight: 700;
-  padding: 10px 16px;
-}
-.radius button.on { background: #2563eb; color: #fff; }
+.toast[hidden] { display: block; opacity: 0; }
 
 .locate {
-  position: absolute;
-  right: 14px;
-  bottom: calc(env(safe-area-inset-bottom) + 20px);
-  z-index: 400;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: none;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 22px;
-  line-height: 46px;
+  position: absolute; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 20px);
+  z-index: 500; width: 46px; height: 46px; border-radius: 50%; border: none;
+  background: var(--surface); color: var(--text); font-size: 22px; line-height: 46px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, .45);
 }
+.locate.follow { color: var(--blue); }
+.locate.compass { background: var(--blue); color: #fff; }
 
+/* 하단 목록 */
 .sheet {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 400;
-  background: var(--surface);
-  border-radius: 16px 16px 0 0;
-  max-height: 38vh;
-  overflow-y: auto;
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 500;
+  background: var(--surface); border-radius: 16px 16px 0 0;
+  max-height: 34vh; overflow-y: auto;
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   box-shadow: 0 -2px 14px rgba(0, 0, 0, .45);
 }
-.sheet-handle {
-  width: 36px; height: 4px; border-radius: 2px;
-  background: var(--muted); opacity: .5; margin: 8px auto;
-}
-
+.sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--muted); opacity: .5; margin: 8px auto; }
 #nearby { list-style: none; margin: 0; padding: 0; }
-#nearby li {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 11px 16px;
-  border-top: 1px solid rgba(255, 255, 255, .06);
-}
+#nearby li { display: flex; align-items: baseline; gap: 10px; padding: 11px 16px; border-top: 1px solid rgba(255, 255, 255, .06); }
 #nearby .nm { flex: 1; font-weight: 600; }
 #nearby .di { color: var(--muted); font-size: 13px; }
 #nearby .rt { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 17px; }
@@ -110,25 +71,70 @@ body {
 #nearby .rt.red { color: var(--red); }
 #nearby .rt i { font-style: normal; font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 1px; }
 
-/* 지도 위 신호등 배지 (네이버 마커 icon.content) */
+/* 지도 위 신호등 배지 (CustomOverlay content) */
 .sig {
-  display: inline-block;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  font-size: 15px;
-  line-height: 1;
-  padding: 4px 7px;
-  border-radius: 8px;
-  color: #fff;
-  white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .5);
+  display: inline-block; font-weight: 800; font-variant-numeric: tabular-nums;
+  font-size: 15px; line-height: 1; padding: 4px 7px; border-radius: 8px; color: #fff;
+  white-space: nowrap; box-shadow: 0 1px 4px rgba(0, 0, 0, .5); cursor: pointer;
 }
 .sig.green { background: var(--green); }
 .sig.red { background: var(--red); }
 .sig i { font-style: normal; font-size: 10px; font-weight: 600; margin-left: 1px; opacity: .85; }
 
-.me {
-  width: 18px; height: 18px; border-radius: 50%;
-  background: #3b82f6; border: 3px solid #fff;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, .4);
+/* 현위치: 점 + 화살표(항상) + 부채꼴(나침반 모드) */
+.me { position: relative; width: 0; height: 0; }
+.me-dot {
+  position: absolute; left: -8px; top: -8px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(37, 99, 235, .35);
 }
+.me-arrow {
+  position: absolute; left: -7px; top: -30px;
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-bottom: 14px solid var(--blue);
+}
+.me-fan {
+  position: absolute; left: -34px; top: -70px; width: 68px; height: 68px;
+  background: radial-gradient(closest-side, rgba(37, 99, 235, .45), rgba(37, 99, 235, 0));
+  clip-path: polygon(50% 100%, 12% 8%, 88% 8%);
+}
+.me:not(.compass) .me-fan { display: none; }
+
+/* 신호등 정보 팝업 */
+.popup {
+  position: absolute; inset: 0; z-index: 800;
+  background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center;
+}
+.popup-card {
+  position: relative; width: min(88%, 360px); background: var(--surface);
+  border-radius: 14px; padding: 18px 18px 16px; box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+}
+.popup-close {
+  position: absolute; right: 8px; top: 6px; width: 32px; height: 32px;
+  border: none; background: transparent; color: var(--muted); font-size: 22px;
+}
+#popup-body h3 { margin: 0 0 10px; font-size: 17px; }
+#popup-body .row { display: flex; justify-content: space-between; padding: 5px 0; border-top: 1px solid rgba(255, 255, 255, .07); }
+#popup-body .row:first-of-type { border-top: none; }
+#popup-body .k { color: var(--muted); }
+#popup-body .v.green { color: var(--green); font-weight: 700; }
+#popup-body .v.red { color: var(--red); font-weight: 700; }
+
+/* 개발자 모드 */
+.devtoggle {
+  position: absolute; left: 12px; bottom: calc(env(safe-area-inset-bottom) + 20px);
+  z-index: 500; background: var(--surface); border-radius: 10px; padding: 6px 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .45); font-size: 13px; font-weight: 700;
+}
+.devtoggle label { display: flex; align-items: center; gap: 6px; }
+.devpanel {
+  position: absolute; left: 8px; right: 8px; bottom: 74px; z-index: 750;
+  max-height: 46vh; overflow-y: auto; background: rgba(10, 14, 22, .96);
+  border: 1px solid #2a3346; border-radius: 12px; padding: 10px; font-size: 12px;
+}
+.devpanel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.devpanel-head button { background: #2a3346; color: var(--text); border: none; border-radius: 6px; padding: 4px 10px; }
+#dev-state { margin: 0 0 8px; white-space: pre-wrap; color: var(--muted); font-family: ui-monospace, monospace; }
+#dev-log { list-style: none; margin: 0; padding: 0; font-family: ui-monospace, monospace; }
+#dev-log li { padding: 3px 0; border-top: 1px solid rgba(255, 255, 255, .06); word-break: break-all; }
+#dev-log .ok { color: var(--green); }
+#dev-log .err { color: var(--red); }
